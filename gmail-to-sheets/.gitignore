@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+.env
+
+# macOS
+.DS_Store
+
+# Google OAuth credentials/tokens (MUST NOT COMMIT)
+gmail-to-sheets/credentials/credentials.json
+credentials/credentials.json
+credentials/token.json
+gmail-to-sheets/credentials/token.json
+
+# Logs
+*.log
