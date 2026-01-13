@@ -2,7 +2,7 @@
 
 ## Overview
 
-Small Python tool that syncs unread Gmail Inbox messages into a Google Sheet. It is idempotent and auditable: rows are appended to an `Emails` sheet and processed `messageId`s are recorded in a `Processed` sheet before messages are marked read.
+Small, safe Python tool that idempotently syncs unread Gmail Inbox messages into a Google Sheet, preventing duplicates by persisting `messageId`s and only marking messages read after successful persistence. It is auditable: rows are appended to an `Emails` sheet and processed `messageId`s are recorded in a `Processed` sheet.
 
 Core guarantees:
 - Processes unread Inbox messages (optional subject filtering).
@@ -13,7 +13,7 @@ Core guarantees:
 
 ```
            +-----------+        +----------------+        +-------------+
-           |  src/main | -----> | gmail_service  | -----> | Gmail API   |
+           |  src/main.py | -----> | gmail_service  | -----> | Gmail API   |
            +-----------+        +----------------+        +-------------+
                  |                      |
                  |                      v
@@ -46,6 +46,8 @@ gmail-to-sheets/
 
 1. Create a Google Cloud project and enable the **Gmail API** and **Google Sheets API**.
 2. Create OAuth client credentials (Application type: Desktop app). Download JSON and place it at `credentials/credentials.json`.
+
+      The OAuth client must be created as a "Desktop app" to support the Installed App flow used by this tool.
 3. Create a Google Spreadsheet and copy its Spreadsheet ID.
 4. Create a virtual environment and install dependencies:
 
@@ -86,7 +88,7 @@ Why not a service account: service accounts cannot access personal Gmail mailbox
 - Append order: first append rows to `Emails`, then append `messageId`s to `Processed`. Only after both appends succeed are messages marked READ.
 - This sequence prevents acknowledging messages that were not persisted and ensures idempotency across runs and machines.
 
-## Bonus features implemented
+## Bonus features implemented (optional)
 
 - Subject-based server-side filtering via `SUBJECT_INCLUDE` (comma-separated keywords).
 - HTML → plain-text fallback using BeautifulSoup when `text/plain` is absent; content is normalized to a single spreadsheet-friendly line.
@@ -106,7 +108,7 @@ Solution: only mark messages READ after both the `Emails` row and the `Processed
 - HTML-to-text conversion is best-effort; complex formatting may be lost.
 - The sync targets Inbox unread messages by design.
 
-## Proof of execution (short)
+## Proof of execution (mandatory)
 
 Place required artifacts (screenshots and a short demo video) in the `proof/` directory. See [proof/README.md](proof/README.md) for filenames and a short checklist.
 

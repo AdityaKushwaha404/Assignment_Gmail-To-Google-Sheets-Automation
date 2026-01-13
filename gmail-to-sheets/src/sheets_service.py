@@ -33,8 +33,12 @@ class SheetsService:
         creds = get_credentials()
         self.service = build("sheets", "v4", credentials=creds)
         self.sheet_id = SPREADSHEET_ID
-        if not self.sheet_id or self.sheet_id == "REPLACE_WITH_YOUR_SPREADSHEET_ID":
-            raise ValueError("Spreadsheet ID not configured. Set SPREADSHEET_ID env var or edit config.py")
+        # Accept spreadsheet ID from environment via `config.py` (SPREADSHEET_ID).
+        # Guard against empty/placeholder values and provide a clear actionable error.
+        if not self.sheet_id or str(self.sheet_id).strip() == "" or self.sheet_id == "REPLACE_WITH_YOUR_SPREADSHEET_ID":
+            raise ValueError(
+                "Spreadsheet ID not configured. Set the SPREADSHEET_ID environment variable or update `config.py` with a valid Spreadsheet ID."
+            )
 
     def _ensure_sheets_exist(self) -> None:
         """Create required tabs and headers if they do not already exist.
