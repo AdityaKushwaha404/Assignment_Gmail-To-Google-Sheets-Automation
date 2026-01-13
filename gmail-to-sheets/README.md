@@ -2,47 +2,41 @@
 
 ## Overview
 
-This project synchronizes UNREAD messages from a Gmail Inbox into a Google
-Sheet in an idempotent, auditable, and explainable way. It is safe to run
-repeatedly and is designed to be easy to demonstrate for evaluation.
+This repository provides a small, production-minded Python tool that syncs
+UNREAD Gmail Inbox messages into a Google Sheet. The implementation is
+idempotent, auditable, and safe to run repeatedly.
 
-Key guarantees:
-- Processes only unread Inbox messages (subject filtering optional).
-- Prevents duplicate rows via persisted `messageId` state in the spreadsheet.
-- Marks messages as READ only after successful persistence of data and IDs.
+Core guarantees:
+- Processes only unread Inbox messages (optional subject filtering).
+- Prevents duplicates using persisted `messageId` state in the spreadsheet.
+- Marks messages READ only after their rows and IDs are persisted.
 - Uses OAuth 2.0 Installed App flow (no service accounts).
-- Normalizes email bodies to produce clean, single-line spreadsheet cells.
-
+- Normalizes message bodies into single-line, human-readable cell values.
 ---
 
 ## Quick links
 
 - Entry point: `src/main.py`
-- Gmail helpers: `src/gmail_service.py`
-- Parsing + cleanup: `src/email_parser.py`
-- Sheets helpers: `src/sheets_service.py`
-- Config & OAuth: `config.py`
-
+- Gmail integration: `src/gmail_service.py`
+- Parsing & cleanup: `src/email_parser.py`
+- Sheets integration: `src/sheets_service.py`
+- Configuration & OAuth: `config.py`
 ---
 
 ## Setup (short)
 
-1. Create a Google Cloud project and enable:
-   - Gmail API
-   - Google Sheets API
-
-2. Create OAuth credentials (Application type: Desktop app) and place the
-   downloaded JSON at:
+1. Create a Google Cloud project and enable the Gmail and Google Sheets APIs.
+2. Create OAuth credentials (Desktop app) and save the JSON as:
 
 ```
 credentials/credentials.json
 ```
 
-> ⚠️ Never commit credentials to version control.
+  Keep this file private and out of version control.
 
-3. Create a Google Sheet and copy its Spreadsheet ID.
+3. Create a Google Spreadsheet and note its Spreadsheet ID.
 
-4. Create and activate a Python virtual environment, then install dependencies:
+4. Create and activate a virtual environment and install dependencies:
 
 ```bash
 python -m venv .venv
@@ -50,11 +44,11 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-5. Configure environment variables (example):
+5. Recommended environment variables (example):
 
 ```bash
 export SPREADSHEET_ID="your_spreadsheet_id_here"
-export SUBJECT_INCLUDE="Invoice,Bill,Payment"  # optional; set empty to process all unread
+export SUBJECT_INCLUDE="Invoice,Bill,Payment"  # optional; empty to disable
 export LOG_LEVEL=INFO
 ```
 
@@ -64,124 +58,103 @@ export LOG_LEVEL=INFO
 python -m src.main
 ```
 
-On first run the Installed App flow opens a browser for consent; a token is
-saved to `credentials/token.json` for subsequent non-interactive runs.
-
+On first run the Installed App flow opens a browser for consent and the
+resulting token is persisted to `credentials/token.json`.
 ---
 
-## Detailed workflow & rationale
+## Workflow & design rationale
 
-1. Authenticate (OAuth) using `config.get_credentials()`.
-2. Ensure the Google Sheet contains the `Emails` and `Processed` tabs (the
-   code creates them with headers on first run).
-3. Load processed `messageId`s from `Processed!A2:A` to build the dedupe set.
-4. Query Gmail for unread Inbox IDs. If `SUBJECT_INCLUDE` is set, the Gmail
-   query includes `subject:(...)` so filtering happens server-side for
-   efficiency.
-5. For each unseen message ID: fetch the full message, parse headers and
-   body, normalize the body into a single-line string, and collect rows.
-6. Append all rows to the `Emails` tab and then append their `messageId`s to
-   the `Processed` tab. Only after both appends succeed are messages marked
-   READ via the Gmail API.
+1. Obtain OAuth credentials via `config.get_credentials()`.
+2. Ensure the spreadsheet has `Emails` and `Processed` tabs; the code will
+  create them if missing.
+3. Load persisted `messageId`s from `Processed!A2:A` and build the dedupe set.
+4. List unread Inbox IDs from Gmail. If `SUBJECT_INCLUDE` is configured the
+  query includes `subject:(...)` to perform server-side filtering.
+5. For each new ID: fetch the full message, parse headers and body, normalize
+  the content (single-line), and queue rows.
+6. Append rows to `Emails` and then append `messageId`s to `Processed`. Only
+  when both appends succeed are messages marked READ.
 
-Why this ordering?
-- Appending rows first then persisting IDs, combined with marking READ only
-  after both operations, keeps the run idempotent and recoverable from
-  mid-run failures.
-
+This sequencing prevents acknowledging messages that were not persisted and
+ensures safe recovery from partial failures.
 ---
 
 ## Parsing & spreadsheet formatting
 
-- The parser prefers `text/plain` content. If missing it falls back to
-  `text/html` which is cleaned using BeautifulSoup:
-  - removes `<script>` and `<style>` tags
-  - extracts visible text and collapses whitespace
-- For `text/plain` bodies we collapse newlines and excessive whitespace so
-  each message content fits in a single spreadsheet cell without embedded
-  line breaks.
+- Prefer `text/plain` when available. Otherwise fall back to `text/html` and
+  sanitize with BeautifulSoup by removing `script`/`style` and collapsing
+  whitespace.
+- Normalize plain-text bodies by collapsing newlines and trimming excess
+  whitespace so each message occupies a single spreadsheet cell.
 
-This makes the sheet easier to scan and avoids breaking row formatting.
-
+These steps produce clean, readable spreadsheet rows and prevent layout
+breakage caused by embedded newlines.
 ---
 
 ## Subject-based filtering
 
 - Default keywords (configurable): `Invoice, Bill, Payment`.
-- Set `SUBJECT_INCLUDE` as a comma-separated env var to change behavior.
-- To process all unread emails, unset or set `SUBJECT_INCLUDE` to an empty
-  string.
+- Configure `SUBJECT_INCLUDE` as a comma-separated environment variable.
+- To process all unread emails, set `SUBJECT_INCLUDE` to an empty string.
 
-Server-side filtering is preferred because it reduces the number of API
-calls and the amount of data the script needs to process.
-
+Server-side subject filtering (when enabled) reduces API usage and speeds up
+processing.
 ---
 
 ## Retry & error handling
 
-- Gmail API calls use an exponential backoff retry decorator. Retries are
-  attempted only for transient errors (HTTP 429 and 5xx). Authentication and
-  permission errors (401, 403) are NOT retried and are surfaced immediately.
-
+- The Gmail API calls are wrapped with an exponential backoff retry
+  decorator.
+- Retries occur for transient conditions (HTTP 429 and 5xx). Authentication
+  and permission errors (401, 403) are not retried and are surfaced to the
+  caller.
 ---
 
 ## Logging & observability
 
-- Logs are structured to include timestamp, level and module name.
-- The app logs key lifecycle events: auth success/refresh, query used,
-  counts of processed/unread messages, rows appended, IDs appended, messages
-  marked READ, and retry attempts/errors.
-- Enable verbose logs with:
+- Logs include timestamp, level and logger name.
+- The application logs authentication events, the Gmail query used,
+  counts of processed/unread messages, append results, and retry attempts.
+- Enable debug logging with:
 
 ```bash
 export LOG_LEVEL=DEBUG
 ```
-
 ---
 
 ## Docker (optional)
 
-A minimal `Dockerfile` is included for reproducible runs. Do **not** bake
-credentials into images. Use a volume mount to provide `credentials/` at
-runtime:
+A minimal `Dockerfile` is provided. Do not bake credentials into the image;
+mount the local `credentials/` directory at runtime:
 
 ```bash
 docker build -t gmail-to-sheets .
 docker run --rm -v "$PWD/credentials":/app/credentials:rw gmail-to-sheets
 ```
-
 ---
 
-## Proof of execution (what to include under `proof/`)
+## Proof of execution (suggested artifacts)
 
-- `gmail_unread.png` — Gmail inbox screenshot showing unread messages used in the demo.
+- `gmail_unread.png` — Gmail inbox screenshot showing the unread messages.
 - `sheet_rows.png` — Google Sheet screenshot showing rows added by the script.
 - `oauth_consent.png` — OAuth consent screen (optional: blur personal info).
 - `demo.mp4` — 2–3 minute screen recording demonstrating the flow,
-  duplicate prevention, and running the script twice to show idempotency.
-
-Place these artifacts inside the `proof/` directory before submission.
-
+  duplicate prevention, and a repeated run to show idempotency.
 ---
 
 ## Limitations & future work
 
 - Attachments are not processed; only message bodies are captured.
-- `Processed` IDs are loaded in memory; for very large histories consider a
-  different backing store.
-- Future improvements: time-based filters, label-based filtering, scheduled
-  execution (Cloud Run / cron), and unit tests that mock API clients.
-
+- `Processed` IDs are loaded into memory; for very large histories consider a
+  different backing store or indexed lookup.
+- Future improvements: time-window filters, label-based filtering, scheduled
+  execution (Cloud Run / cron), and unit tests with mocked API clients.
 ---
 
 ## Author
 
 Aditya Kushwaha
 
----
-
-If you paste this README into the repository and upload the `proof/`
-artifacts, the repository is submission-ready.
 # Gmail → Google Sheets Automation (OAuth 2.0)
 
 **Full Name (required for submission):** REPLACE_WITH_YOUR_FULL_NAME
