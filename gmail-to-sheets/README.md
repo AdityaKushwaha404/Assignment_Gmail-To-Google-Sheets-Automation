@@ -112,6 +112,27 @@ Solution: only mark messages READ after both the `Emails` row and the `Processed
 
 Place required artifacts (screenshots and a short demo video) in the `proof/` directory. See [proof/README.md](proof/README.md) for filenames and a short checklist.
 
+Download video file from proof folder to see demo.
+
+<img width="3360" height="1924" alt="image" src="https://github.com/user-attachments/assets/1e02ada5-8516-4fc5-999a-49841f45c2b7" />
+
+<img width="3360" height="1304" alt="image" src="https://github.com/user-attachments/assets/52773dbd-74e4-4675-980f-fcd60c37c143" />
+
+<img width="3360" height="1924" alt="image" src="https://github.com/user-attachments/assets/8b0a468b-4b79-903c-0d28b24bad51" />
+
+<img width="3360" height="2018" alt="image" src="https://github.com/user-attachments/assets/0c210460-6041-40b5-bd80-7f071dee68e7" />
+
+<img width="1726" height="422" alt="image" src="https://github.com/user-attachments/assets/8a236221-8584-4bd4-8cf2-f1392c34f65a" />
+
+<img width="3360" height="1924" alt="image" src="https://github.com/user-attachments/assets/5c330362-fc43-4615-821a-b756cd747cd7" />
+
+<img width="3360" height="1918" alt="image" src="https://github.com/user-attachments/assets/72ac64a4-0e46-4569-bb05-66c74870ee06" />
+
+<img width="3360" height="1048" alt="image" src="https://github.com/user-attachments/assets/f9e0ac91-b78d-485f-9958-d883b51854cf" />
+
+<img width="1876" height="710" alt="image" src="https://github.com/user-attachments/assets/f9fac17b-beff-4df1-8b38-e8822b80dcbb" />
+
+
 ## Author
 
 Aditya Kushwaha
